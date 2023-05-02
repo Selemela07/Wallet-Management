@@ -1,0 +1,20 @@
+{
+  "bitcoin": {
+    "rpcip": "10.43.100.100",
+    "rpcport": "18333",
+    "rpcuser": "metatime",
+    "rpcpassword": "metatime2023"
+  },
+  "litecoin": {
+    "rpcip": "10.43.100.101",
+    "rpcport": "18336",
+    "rpcuser": "sabri",
+    "rpcpassword": "Asd+-*123asd"
+  },
+  "dogecoin": {
+    "rpcip": "10.43.25.96",
+    "rpcport": "20333",
+    "rpcuser": "sabri",
+    "rpcpassword": "Asd+-*123asd"
+  }
+}
