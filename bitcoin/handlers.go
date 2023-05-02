@@ -31,7 +31,7 @@ func RegisterHandlers(router *mux.Router, config CoinConfig) {
 func transactionHandler(config CoinConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		txID := mux.Vars(r)["txid"]
-		response, err := makeJSONRPCRequest(config, "getrawtransaction", []interface{}{txID, 1})
+		response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{txID})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
