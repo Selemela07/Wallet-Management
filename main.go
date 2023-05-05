@@ -40,7 +40,6 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 func main() {
-
 	configFile, err := os.Open("config.json")
 	if err != nil {
 		fmt.Println(err)

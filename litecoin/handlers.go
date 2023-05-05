@@ -34,7 +34,7 @@ func InitRedis() {
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
-		DB:       1, // bitcoin için 0, litecoin için 1, dogecoin için 2
+		DB:       1, //litecoin için 1
 	})
 }
 

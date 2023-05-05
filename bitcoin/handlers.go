@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/go-redis/redis/v8"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"runtime"
-
-	"github.com/go-redis/redis/v8"
-	"github.com/gorilla/mux"
 )
 
 type CoinConfig struct {
