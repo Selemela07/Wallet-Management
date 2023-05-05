@@ -40,6 +40,7 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 func main() {
+
 	configFile, err := os.Open("config.json")
 	if err != nil {
 		fmt.Println(err)
@@ -56,7 +57,8 @@ func main() {
 	bitcoin.RegisterHandlers(router.PathPrefix("/api/bitcoin").Subrouter(), config.Bitcoin)
 	litecoin.RegisterHandlers(router.PathPrefix("/api/litecoin").Subrouter(), config.Litecoin)
 	dogecoin.RegisterHandlers(router.PathPrefix("/api/dogecoin").Subrouter(), config.Dogecoin)
-
+	bitcoin.InitRedis()
+	litecoin.InitRedis()
 	http.ListenAndServe(":8090", router)
 }
 

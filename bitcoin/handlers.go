@@ -2,10 +2,15 @@ package bitcoin
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
+	"runtime"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/gorilla/mux"
 )
 
 type CoinConfig struct {
@@ -22,8 +27,20 @@ type JSONRPCRequest struct {
 	JsonRpc string      `json:"jsonrpc"`
 }
 
+var (
+	redisClient *redis.Client
+)
+
+func InitRedis() {
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0, // bitcoin için 0, litecoin için 1, dogecoin için 2
+	})
+}
+
 func RegisterHandlers(router *mux.Router, config CoinConfig) {
-	router.HandleFunc("/tx", transactionHandler(config)).Methods("POST")
+	router.HandleFunc("/tx/{txid}", transactionHandler(config)).Methods("GET")
 	router.HandleFunc("/getnewaddress", getGetNewAddressHandler(config)).Methods("POST")
 	router.HandleFunc("/getbalance", getBalanceHandler(config)).Methods("POST")
 	router.HandleFunc("/getaddressbalance", getAddressBalanceHandler(config)).Methods("POST")
@@ -36,27 +53,33 @@ func RegisterHandlers(router *mux.Router, config CoinConfig) {
 
 func transactionHandler(config CoinConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			TXID string `json:"txid"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		txid := mux.Vars(r)["txid"] // URL'den işlem kimliğini alın
+
+		processed, err := isTransactionProcessed(txid)
+		if err != nil {
+			http.Error(w, "Error checking transaction status", http.StatusInternalServerError)
 			return
 		}
 
-		if req.TXID == "" {
-			http.Error(w, "TXID parameter is required", http.StatusBadRequest)
+		if processed {
+			// İşlem zaten işlendi, bu nedenle döngüyü atlayın
 			return
 		}
 
-		response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{req.TXID})
+		txID := mux.Vars(r)["txid"]
+		response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{txID})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(response)
+
+		if err := markTransactionProcessed(txid); err != nil {
+			http.Error(w, "Error marking transaction as processed", http.StatusInternalServerError)
+			return
+		}
+
 	}
 }
 
@@ -361,4 +384,24 @@ func makeJSONRPCRequest(config CoinConfig, method string, params interface{}) ([
 	}
 
 	return responseBytes, nil
+}
+
+// redis
+func isTransactionProcessed(txid string) (bool, error) {
+	paketadi := getPackageName()
+	key := paketadi + "_" + txid
+	exists, err := redisClient.Exists(context.Background(), key).Result()
+	return exists == 1, err
+}
+
+func markTransactionProcessed(txid string) error {
+	paketadi := getPackageName()
+	key := paketadi + "_" + txid
+	return redisClient.Set(context.Background(), key, "1", 0).Err()
+}
+
+func getPackageName() string {
+	_, filename, _, _ := runtime.Caller(0)
+	packageName := filepath.Base(filepath.Dir(filename))
+	return packageName
 }
