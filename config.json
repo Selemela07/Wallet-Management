@@ -1,20 +1,20 @@
 {
   "bitcoin": {
-    "rpcip": "10.43.100.100",
-    "rpcport": "18333",
-    "rpcuser": "metatime",
-    "rpcpassword": "metatime2023"
+    "rpcip": "127.0.0.1",
+    "rpcport": "18301",
+    "rpcuser": "sabri",
+    "rpcpassword": "Asd+-*123asd"
   },
   "litecoin": {
-    "rpcip": "10.43.100.102",
-    "rpcport": "18333",
-    "rpcuser": "metatime",
-    "rpcpassword": "metatime2023"
+    "rpcip": "127.0.0.1",
+    "rpcport": "18401",
+    "rpcuser": "sabri",
+    "rpcpassword": "Asd+-*123asd"
   },
   "dogecoin": {
-    "rpcip": "10.43.100.101",
-    "rpcport": "18333",
-    "rpcuser": "metatime",
-    "rpcpassword": "metatime2023"
+    "rpcip": "127.0.0.1",
+    "rpcport": "18501",
+    "rpcuser": "sabri",
+    "rpcpassword": "Asd+-*123asd"
   }
 }

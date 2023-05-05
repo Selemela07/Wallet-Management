@@ -57,7 +57,7 @@ func main() {
 	litecoin.RegisterHandlers(router.PathPrefix("/api/litecoin").Subrouter(), config.Litecoin)
 	dogecoin.RegisterHandlers(router.PathPrefix("/api/dogecoin").Subrouter(), config.Dogecoin)
 
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":8090", router)
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
