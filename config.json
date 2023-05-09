@@ -16,5 +16,9 @@
     "rpcport": "18501",
     "rpcuser": "sabri",
     "rpcpassword": "Asd+-*123asd"
+  },
+  "Redis": {
+    "Host": "localhost",
+    "Port": 6379
   }
 }

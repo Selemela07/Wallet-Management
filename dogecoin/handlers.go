@@ -34,7 +34,7 @@ func InitRedis() {
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
-		DB:       1, // bitcoin için 0, litecoin için 1, dogecoin için 2
+		DB:       2, // bitcoin için 0, litecoin için 1, dogecoin için 2
 	})
 }
 
@@ -61,9 +61,21 @@ func transactionHandler(config CoinConfig) http.HandlerFunc {
 		}
 
 		if processed {
-			// İşlem zaten işlendi, bu nedenle döngüyü atlayın
+			//rediste işlem işaretlendi yinede kullanıcı istediğinde işlemi göster
+			txID := mux.Vars(r)["txid"]
+			response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{txID})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(response)
+
+			//rediste işlem işaretlendi yinede kullanıcı istediğinde işlemi göster
 			return
 		}
+
+		//veritabanına burada işlenecek
 
 		txID := mux.Vars(r)["txid"]
 		response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{txID})
@@ -81,7 +93,6 @@ func transactionHandler(config CoinConfig) http.HandlerFunc {
 
 	}
 }
-
 func getGetNewAddressHandler(config CoinConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -95,24 +106,24 @@ func getGetNewAddressHandler(config CoinConfig) http.HandlerFunc {
 			return
 		}
 
-		if len(req.Params) != 2 {
-			http.Error(w, "Two parameters (label and address_type) are required", http.StatusBadRequest)
+		if len(req.Params) > 1 {
+			http.Error(w, "Only one optional parameter (account) is allowed", http.StatusBadRequest)
 			return
 		}
 
-		label, ok := req.Params[0].(string)
-		if !ok {
-			http.Error(w, "The first parameter must be a string (label)", http.StatusBadRequest)
-			return
+		var account string
+		if len(req.Params) == 1 {
+			accountParam, ok := req.Params[0].(string)
+			if !ok {
+				http.Error(w, "The optional parameter must be a string (account)", http.StatusBadRequest)
+				return
+			}
+			account = accountParam
+		} else {
+			account = ""
 		}
 
-		addressType, ok := req.Params[1].(string)
-		if !ok {
-			http.Error(w, "The second parameter must be a string (address_type)", http.StatusBadRequest)
-			return
-		}
-
-		response, err := makeJSONRPCRequest(config, "getnewaddress", []interface{}{label, addressType})
+		response, err := makeJSONRPCRequest(config, "getnewaddress", []interface{}{account})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -319,9 +330,6 @@ func sendTransactionsHandler(config CoinConfig) http.HandlerFunc {
 			Comment               string  `json:"comment,omitempty"`
 			CommentTo             string  `json:"comment_to,omitempty"`
 			SubtractFeeFromAmount bool    `json:"subtract_fee_from_amount,omitempty"`
-			Replaceable           *bool   `json:"replaceable,omitempty"`
-			ConfTarget            *int    `json:"conf_target,omitempty"`
-			EstimateMode          string  `json:"estimate_mode,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&sendReq); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -333,20 +341,15 @@ func sendTransactionsHandler(config CoinConfig) http.HandlerFunc {
 		}
 		if sendReq.Comment != "" {
 			params = append(params, sendReq.Comment)
+		} else {
+			params = append(params, "")
 		}
 		if sendReq.CommentTo != "" {
 			params = append(params, sendReq.CommentTo)
+		} else {
+			params = append(params, "")
 		}
 		params = append(params, sendReq.SubtractFeeFromAmount)
-		if sendReq.Replaceable != nil {
-			params = append(params, *sendReq.Replaceable)
-		}
-		if sendReq.ConfTarget != nil {
-			params = append(params, *sendReq.ConfTarget)
-		}
-		if sendReq.EstimateMode != "" {
-			params = append(params, sendReq.EstimateMode)
-		}
 
 		response, err := makeJSONRPCRequest(config, "sendtoaddress", params)
 		if err != nil {

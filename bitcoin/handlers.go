@@ -61,9 +61,21 @@ func transactionHandler(config CoinConfig) http.HandlerFunc {
 		}
 
 		if processed {
-			// İşlem zaten işlendi, bu nedenle döngüyü atlayın
+			//rediste işlem işaretlendi yinede kullanıcı istediğinde işlemi göster
+			txID := mux.Vars(r)["txid"]
+			response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{txID})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(response)
+
+			//rediste işlem işaretlendi yinede kullanıcı istediğinde işlemi göster
 			return
 		}
+
+		//veritabanına burada işlenecek
 
 		txID := mux.Vars(r)["txid"]
 		response, err := makeJSONRPCRequest(config, "gettransaction", []interface{}{txID})

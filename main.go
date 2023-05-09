@@ -7,7 +7,11 @@ import (
 	"crypto-api/litecoin"
 	"encoding/json"
 	"fmt"
+	"github.com/common-nighthawk/go-figure"
 	"github.com/fatih/color"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
 	"log"
 	"net/http"
 	"os"
@@ -53,12 +57,43 @@ func main() {
 	router := mux.NewRouter()
 	router.Use(loggingMiddleware)
 
-	bitcoin.RegisterHandlers(router.PathPrefix("/api/bitcoin").Subrouter(), config.Bitcoin)
-	litecoin.RegisterHandlers(router.PathPrefix("/api/litecoin").Subrouter(), config.Litecoin)
-	dogecoin.RegisterHandlers(router.PathPrefix("/api/dogecoin").Subrouter(), config.Dogecoin)
-	bitcoin.InitRedis()
-	litecoin.InitRedis()
-	http.ListenAndServe(":8090", router)
+	//server başladı
+	go http.ListenAndServe(":8090", router)
+
+	for {
+		bitcoin.RegisterHandlers(router.PathPrefix("/api/bitcoin").Subrouter(), config.Bitcoin)
+		litecoin.RegisterHandlers(router.PathPrefix("/api/litecoin").Subrouter(), config.Litecoin)
+		dogecoin.RegisterHandlers(router.PathPrefix("/api/dogecoin").Subrouter(), config.Dogecoin)
+		bitcoin.InitRedis()
+		litecoin.InitRedis()
+		dogecoin.InitRedis()
+
+		fig := figure.NewColorFigure("METATIME.COM", "", "green", true)
+		fig.Print()
+		color.Cyan("\nWallet Server başarı ile başlatıldı  - Dinlenilen Port :8090")
+
+		color.Red("____________________________")
+		color.Red("Wallet Server Sistem Detayları")
+		color.Red("____________________________")
+		// CPU kullanımı
+		cpuPercent, _ := cpu.Percent(0, false)
+		color.Green("CPU Kullanımı: %.2f%%\n", cpuPercent[0])
+
+		// RAM kullanımı
+		virtualMemory, _ := mem.VirtualMemory()
+		color.Yellow("RAM Kullanımı: %.2f%%\n", virtualMemory.UsedPercent)
+
+		// Sistem yükü
+		loadAvg, _ := load.Avg()
+		color.Magenta("Sistem Yükü (1m, 5m, 15m): %.2f, %.2f, %.2f\n", loadAvg.Load1, loadAvg.Load5, loadAvg.Load15)
+
+		// 5 saniye bekle
+		time.Sleep(300 * time.Second)
+
+		// Terminali temizle
+		fmt.Print("\033[H\033[2J")
+	}
+
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
