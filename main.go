@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto-api/bitcoin"
 	"crypto-api/dogecoin"
+	"crypto-api/ethereum"
 	"crypto-api/litecoin"
 	"encoding/json"
 	"fmt"
@@ -21,16 +22,10 @@ import (
 )
 
 type Config struct {
-	Bitcoin  bitcoin.CoinConfig  `json:"bitcoin"`
-	Litecoin litecoin.CoinConfig `json:"litecoin"`
-	Dogecoin dogecoin.CoinConfig `json:"dogecoin"`
-}
-
-type CoinConfig struct {
-	RPCIP       string `json:"rpcip"`
-	RPCPort     string `json:"rpcport"`
-	RPCUser     string `json:"rpcuser"`
-	RPCPassword string `json:"rpcpassword"`
+	Bitcoin  bitcoin.CoinConfig      `json:"bitcoin"`
+	Litecoin litecoin.CoinConfig     `json:"litecoin"`
+	Dogecoin dogecoin.CoinConfig     `json:"dogecoin"`
+	Ethereum ethereum.EthereumConfig `json:"ethereum"`
 }
 
 type responseWriter struct {
@@ -64,6 +59,9 @@ func main() {
 		bitcoin.RegisterHandlers(router.PathPrefix("/api/bitcoin").Subrouter(), config.Bitcoin)
 		litecoin.RegisterHandlers(router.PathPrefix("/api/litecoin").Subrouter(), config.Litecoin)
 		dogecoin.RegisterHandlers(router.PathPrefix("/api/dogecoin").Subrouter(), config.Dogecoin)
+
+		ethereum.RegisterHandlers(router.PathPrefix("/api/ethereum").Subrouter(), config.Ethereum)
+
 		bitcoin.InitRedis()
 		litecoin.InitRedis()
 		dogecoin.InitRedis()

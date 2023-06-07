@@ -20,5 +20,9 @@
   "Redis": {
     "Host": "localhost",
     "Port": 6379
+  },
+  "ethereum": {
+    "ipcpath": "/home/sbr/Desktop/bsc/node/geth.ipc"
   }
+
 }
