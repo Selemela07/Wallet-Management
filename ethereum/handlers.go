@@ -8,115 +8,29 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/mux"
 	"log"
-	"math"
 	"math/big"
 	"net/http"
 	"strconv"
-	"sync"
 )
 
-type EthereumConfig struct {
-	IPCPath string `json:"ipcpath"`
-}
-
-type BlockRequest struct {
-	BlockNumber string `json:"blocknumber"`
-}
-
-type BlockResponse struct {
-	Number           int64
-	Hash             string
-	ParentHash       string
-	Sha3Uncles       string
-	LogsBloom        interface{}
-	TransactionsRoot string
-	StateRoot        string
-	ReceiptsRoot     string
-	Miner            string
-	Difficulty       uint64
-	TotalDifficulty  uint64
-	Size             interface{}
-	GasLimit         uint64
-	GasUsed          uint64
-	Timestamp        uint64
-	ExtraData        string
-	MixHash          string
-	Nonce            string
-}
-
-type BlockRangeRequest struct {
-	StartBlock string `json:"startblock"`
-	EndBlock   string `json:"endblock"`
-}
-
-type TransactionRequest struct {
-	TxID string `json:"txid"`
-}
-
-type TransactionResponse struct {
-	BlockHash        string
-	BlockNumber      string
-	TransactionIndex uint
-	From             string
-	To               string
-	Value            string
-	GasPrice         string
-	Gas              uint64
-	Input            string
-	Nonce            uint64
-	Hash             string
-}
-
-type BalanceRequest struct {
-	Address string `json:"address"`
-}
-
-type BalanceResponse struct {
-	Balance string `json:"balance"`
-}
-
-type MultiBalanceRequest struct {
-	Addresses []string `json:"addresses"`
-}
-
-type MultiBalanceResponse struct {
-	Balances map[string]string `json:"balances"`
-}
-
-type BlockRange struct {
-	StartBlock int64 `json:"startBlock"`
-	EndBlock   int64 `json:"endBlock"`
-}
-
-type Config struct {
-	Client *ethclient.Client
-	// diğer alanlar...
-}
-
-type GetAddressRangeRequest struct {
-	StartBlock string `json:"startBlock"`
-	EndBlock   string `json:"endBlock"`
-}
-
-type AddressRangeRequest struct {
-	Start string `json:"start"`
-	End   string `json:"end"`
-}
-
-type AddressBalance struct {
-	Address string `json:"address"`
-	Balance string `json:"balance"`
-}
-
-type AddressListResponse struct {
-	Addresses []AddressBalance `json:"addresses"`
-}
+// Redis client
+var ctx = context.Background()
+var rdb = redis.NewClient(&redis.Options{
+	Addr:     "localhost:6379", // replace with your Redis address and port
+	Password: "",               // replace with your password if any
+	DB:       0,                // use default DB
+})
 
 func RegisterHandlers(router *mux.Router, cfg EthereumConfig) {
 	router.HandleFunc("/block", func(w http.ResponseWriter, r *http.Request) {
 		getBlock(w, r, cfg)
+	}).Methods("POST")
+
+	router.HandleFunc("/blockrange", func(w http.ResponseWriter, r *http.Request) {
+		getBlockRange(w, r, cfg)
 	}).Methods("POST")
 
 	router.HandleFunc("/transaction", func(w http.ResponseWriter, r *http.Request) {
@@ -431,82 +345,42 @@ func getAllTransactionAddressesHandler(w http.ResponseWriter, r *http.Request, c
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
 	}
 
-	addresses, err := getAllTransactionAddresses(client, start, end)
+	err = getAllTransactionAddresses(client, start, end)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error fetching addresses: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	response := AddressListResponse{
-		Addresses: addresses,
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]string{"message": "All addresses processed and set in Redis"})
 }
 
-func getAllTransactionAddresses(client *ethclient.Client, startBlock, endBlock *big.Int) ([]AddressBalance, error) {
-	addressMap := make(map[string]struct{})
-	balances := make([]AddressBalance, 0)
+func getAllTransactionAddresses(client *ethclient.Client, startBlock, endBlock *big.Int) error {
+	for blockNumber := new(big.Int).Set(startBlock); blockNumber.Cmp(endBlock) <= 0; blockNumber.Add(blockNumber, big.NewInt(1)) {
+		// Print the current block number in the same line
+		fmt.Printf("\rProcessing block: %s", blockNumber.String())
 
-	blocks := make(chan *big.Int, 100)
-	go func() {
-		defer close(blocks)
-		for blockNumber := new(big.Int).Set(endBlock); blockNumber.Cmp(startBlock) >= 0; blockNumber.Sub(blockNumber, big.NewInt(1)) {
-			blocks <- blockNumber
-		}
-	}()
-
-	addressCh := make(chan string, 100)
-	go func() {
-		defer close(addressCh)
-		var wg sync.WaitGroup
-		for blockNumber := range blocks {
-			wg.Add(1)
-			go func(blockNumber *big.Int) {
-				defer wg.Done()
-				block, err := client.BlockByNumber(context.Background(), blockNumber)
-				if err != nil {
-					log.Printf("Error fetching block %s: %v", blockNumber, err)
-					return
-				}
-				for _, tx := range block.Transactions() {
-					to := tx.To()
-					if to != nil {
-						addressCh <- to.Hex()
-					}
-				}
-			}(blockNumber)
-		}
-		wg.Wait()
-	}()
-
-	for addr := range addressCh {
-		addressMap[addr] = struct{}{}
-	}
-
-	oneEthInWei := big.NewInt(1e18)
-	for addr := range addressMap {
-		address := common.HexToAddress(addr)
-		balance, err := client.BalanceAt(context.Background(), address, nil)
+		block, err := client.BlockByNumber(ctx, blockNumber)
 		if err != nil {
-			return nil, err
+			log.Printf("\nError fetching block %s: %v", blockNumber, err)
+			return err
 		}
+		for _, tx := range block.Transactions() {
+			to := tx.To()
+			if to != nil {
+				balance, err := client.BalanceAt(ctx, *to, nil)
+				if err != nil {
+					log.Printf("\nError fetching balance for address %s: %v", to.Hex(), err)
+					continue
+				}
 
-		if balance.Cmp(oneEthInWei) > 0 {
-			balanceInEth := new(big.Float).Quo(new(big.Float).SetInt(balance), new(big.Float).SetInt(oneEthInWei))
-			balances = append(balances, AddressBalance{
-				Address: addr,
-				Balance: balanceInEth.String(),
-			})
+				balanceInEth := new(big.Float).Quo(new(big.Float).SetInt(balance), new(big.Float).SetInt(big.NewInt(1e18)))
+				err = rdb.Set(ctx, to.Hex(), balanceInEth.String(), 0).Err()
+				if err != nil {
+					log.Printf("\nError setting balance in Redis for address %s: %v", to.Hex(), err)
+				}
+			}
 		}
 	}
-
-	return balances, nil
-}
-
-func weiToEther(wei *big.Int) *big.Float {
-	ether := new(big.Float)
-	ether.SetString(wei.String())
-	return new(big.Float).Quo(ether, big.NewFloat(math.Pow10(18)))
+	return nil
 }
