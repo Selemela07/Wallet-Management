@@ -66,7 +66,7 @@ func main() {
 		litecoin.InitRedis()
 		dogecoin.InitRedis()
 
-		fig := figure.NewColorFigure("METATIME.COM", "", "green", true)
+		fig := figure.NewColorFigure("SATOSHITURK.COM", "", "green", true)
 		fig.Print()
 		color.Cyan("\nWallet Server başarı ile başlatıldı  - Dinlenilen Port :8090")
 
