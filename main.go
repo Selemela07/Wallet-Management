@@ -5,11 +5,14 @@ import (
 	"crypto-api/bitcoin"
 	"crypto-api/dogecoin"
 	"crypto-api/ethereum"
+	"crypto-api/helper"
 	"crypto-api/litecoin"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/common-nighthawk/go-figure"
 	"github.com/fatih/color"
+	"github.com/gorilla/mux"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
@@ -17,8 +20,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
 type Config struct {
@@ -37,8 +38,20 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	rw.body.Write(b)
 	return rw.ResponseWriter.Write(b)
 }
+func createHD() {
+	mnemonic := helper.GenerateMnemonic()
+	//privateKey, publicKey, seed := helper.DeriveKeys(mnemonic, "m/44'/60'/0'/0") // bip32
+	privateKey, publicKey, seed := helper.DeriveKeys(mnemonic, "m/44'/60'/0'") // bip44
 
+	fmt.Println("Mnemonic  : ", mnemonic)
+	fmt.Println("Private key: ", privateKey)
+	fmt.Println("Public key: ", publicKey)
+	fmt.Println("BIP39 Seed: ", hex.EncodeToString(seed))
+	fmt.Println(helper.GeneratePriv(privateKey, "0/0"))
+	fmt.Println(helper.GeneratePub(publicKey, 0))
+}
 func main() {
+	createHD()
 	configFile, err := os.Open("config.json")
 	if err != nil {
 		fmt.Println(err)
